@@ -38,12 +38,28 @@ for(i in 1:1000)
 
 hot.dry.lm = lm(npp.x ~  hot_dry_jan_march  + hot_dry_april_june  + hot_dry_july_september + hot_dry_oct_dec, data = stratified_final_mean)
 summary(hot.dry.lm)
-coef_nolag <- do.call("rbind", list.aic.nolag)
-head(coef_nolag)
-coef_nolag.2 <- cbind(rownames(coef_nolag), data.frame(coef_nolag, row.names=NULL))
-head(coef_nolag.2)
-colnames(coef_nolag.2) <- c("id","region","AIC.nolag")
-head(coef_nolag.2)
+
+#soil moisture - changing list to dataframe
+coef_soil_moisture<- do.call("rbind", soil.moisture.list)
+head(coef_soil_moisture)
+coef_soil_moisture.2 <- cbind(rownames(coef_soil_moisture), data.frame(coef_soil_moisture, row.names=NULL))
+head(coef_soil_moisture.2)
+colnames(coef_soil_moisture.2) <- c("id","region","jan_march_swc",'april_june_swc','july_september_swc','october_december_swc')
+head(coef_soil_moisture.2)
+
+data_long_soil_moisture <- gather(coef_soil_moisture.2, coefficient,value,-id,-region, factor_key=TRUE)
+head(data_long_soil_moisture)
+
+
+
+#look at sgs
+sgs_soil_moisture<-subset(coef_soil_moisture.2,region=='semi_arid_steppe')
+head(sgs_soil_moisture)
+
+hist(sgs_soil_moisture$jan_march_swc)
+hist(sgs_soil_moisture$april_june_swc)
+hist(sgs_soil_moisture$july_september_swc)
+hist(sgs_soil_moisture$october_december_swc)
 
 coef_lag <- do.call("rbind", list.aic.lag)
 head(coef_lag)
@@ -57,3 +73,28 @@ head(merge.lags)
 
 merge.lags$aic.diff <- merge.lags$AIC.lag - merge.lags$AIC.nolag 
 hist(merge.lags$prev.year.coef)
+
+#plot
+summary(data_long_soil_moisture)
+ggplot(data_long_soil_moisture,aes(x=value,fill=coefficient)) +
+  geom_histogram(binwidth = 0.25,color='black') +
+  geom_vline(xintercept=0,size=1.5,color='black') +
+  facet_wrap(~region,nrow=5,scales='free_y',labeller = as_labeller(veg_names)) +
+  xlab('Soil moisture impact on NPP') +
+  scale_x_continuous(limit=c(-20,20)) +
+  ylab("count") +
+  theme(
+    axis.text.x = element_text(color='black',size=10), #angle=25,hjust=1),
+    axis.text.y = element_text(color='black',size=12),
+    axis.title = element_text(color='black',size=15),
+    axis.ticks = element_line(color='black'),
+    legend.key = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size=13),
+    strip.background =element_rect(fill="white"),
+    strip.text = element_text(size=15),
+    panel.background = element_rect(fill=NA),
+    legend.position = c(0.2,0.15),
+    panel.border = element_blank(), #make the borders clear in prep for just have two axes
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"))
