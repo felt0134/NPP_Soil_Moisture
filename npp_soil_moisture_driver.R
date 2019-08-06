@@ -5,6 +5,8 @@ library(spdep)
 library(splitstackshape)
 library(raster)
 library(gstat)
+library(tidyr)
+library(ggplot2)
 
 #load initial dataframe
 # ********need to update this dataframe to include the new soil moisture data Bob updated******

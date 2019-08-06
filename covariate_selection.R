@@ -98,3 +98,8 @@ ggplot(data_long_soil_moisture,aes(x=value,fill=coefficient)) +
     panel.border = element_blank(), #make the borders clear in prep for just have two axes
     axis.line.x = element_line(colour = "black"),
     axis.line.y = element_line(colour = "black"))
+
+
+####cold deserts#########
+
+cold_deserts_vwc_filtered <- 
