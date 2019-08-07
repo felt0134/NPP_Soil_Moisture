@@ -102,4 +102,4 @@ ggplot(data_long_soil_moisture,aes(x=value,fill=coefficient)) +
 
 ####cold deserts#########
 
-cold_deserts_vwc_filtered <- 
+cold_deserts_vwc_filtered <- data_long_soil_moisture
