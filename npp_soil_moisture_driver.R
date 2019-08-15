@@ -7,6 +7,7 @@ library(raster)
 library(gstat)
 library(tidyr)
 library(ggplot2)
+library(sp)
 
 #load initial dataframe
 # ********need to update this dataframe to include the new soil moisture data Bob updated******

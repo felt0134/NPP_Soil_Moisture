@@ -37,3 +37,7 @@ summary(df2_mean)
 
 
 hist(coef_soil_moisture_cold_deserts.3$coefficient.april_june_swc_october_december_swc)
+hist(coef_soil_moisture_cold_deserts.3$coefficient.october_december_swc)
+hist(coef_soil_moisture_cold_deserts.3$coefficient.april_june_swc)
+
+
