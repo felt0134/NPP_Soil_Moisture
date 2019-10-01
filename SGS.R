@@ -131,11 +131,30 @@ for(i in 1:1000)
   list.variograms.sgs.swc[[i]] <- variogram.plot
   
 }
-install.packages("remotes")
-library(devtools)
-install_github("dustinfife/fifer")
-library(splitstackshape)
-?remotes
-?stratified
-list.variograms.sgs.swc[900]
-plot(residual.raster)
+
+plot(list.variograms.sgs.swc[508])
+
+summary(stratified_final_lm)
+df.coefficients.sgs <- do.call("rbind", list.coefficients.final.sgs.swc)
+head(df.coefficients.sgs)
+df.coefficients.sgs.2 <- cbind(rownames(df.coefficients.sgs), data.frame(df.coefficients.sgs, row.names=NULL))
+
+colnames(df.coefficients.sgs.2)  <- c("predictor","coefficient","run.id")
+
+df.coefficients.sgs.2$predictor<-gsub('[[:digit:]]+', '', df.coefficients.sgs.2$predictor)
+df.coefficients.sgs.2$predictor<-gsub(':', '_', df.coefficients.sgs.2$predictor)
+df2.sgs<-reshape(df.coefficients.sgs.2, idvar = "run.id", timevar = "predictor", direction = "wide")
+colnames(df2.sgs)
+head(df2.sgs)
+hist(df2$coefficient.sgs_moisture)
+
+
+error.95 <-function(x) {
+  n = length(x)
+  se = sd(x)/sqrt(n)
+  error <- qnorm(0.975)*se
+  return(error)
+}
+
+error.95(df2$coefficient.sgs_moisture)
+mean(df2$coefficient.sgs_moisture)
