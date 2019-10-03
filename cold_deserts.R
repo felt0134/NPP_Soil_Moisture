@@ -4,17 +4,37 @@ cold_deserts_swc<-subset(rangeland_npp_covariates_1,region.x=='cold_deserts')
 head(cold_deserts_swc)
 head(sensitivity_cold_deserts_swc)
 
+#get rid of outleir pixels
+summary(sensitivity_cold_deserts_swc_coef_only_2)
+head(sensitivity_cold_deserts_swc_coef_only_2)
+hist(sensitivity_cold_deserts_swc_coef_only_2$coef)
+mean(sensitivity_cold_deserts_swc_coef_only_2$coef)
+sd(sensitivity_cold_deserts_swc_coef_only_2$coef)
+3.61 + (3*3.88)
+
+cold_deserts_swc_coef_no_outliers<- sensitivity_cold_deserts_swc_coef_only_2 %>% dplyr::filter(coef < 15.25)
+head(cold_deserts_swc_coef_no_outliers)
+hist(cold_deserts_swc_coef_no_outliers$coef)
+
+#merge datasets
+cold_deserts_merged<-merge(cold_deserts_swc_coef_no_outliers,cold_deserts_swc,by=c('x','y'))
+head(cold_deserts_merged)
+cd_lm<-lm(npp.x~april_june_swc,data=cold_deserts_merged)
+summary(cd_lm)
+
+
 list.coefficients.final.cold_deserts.swc<-list()
 list.variograms.cold_deserts.swc<-list()
 list.residuals.full.cold_deserts.swc<-list()
 list.residual.rasters.cold_deserts.swc<-list()
 head(cold_deserts_swc)
 head(stratified_final)
+
 for(i in 1:1000)
 {
   
   test.strat.cold_deserts<-stratified(cold_deserts_above_below, c("map"), 0.01)
-  stratified_final<-merge(test.strat.cold_deserts, cold_deserts_swc,by=c('x','y'))
+  stratified_final<-merge(test.strat.cold_deserts, cold_deserts_merged,by=c('x','y'))
   stratified_final_lm<-lm(npp.x~april_june_swc 
                           ,stratified_final)
   
@@ -43,6 +63,8 @@ for(i in 1:1000)
 }
 
 list.variograms.cold_deserts.swc[700]
+list.residual.rasters.cold_deserts.swc[700]
+plot(residual.raster)
 
 summary(stratified_final_lm)
 df.coefficients.cold_deserts <- do.call("rbind", list.coefficients.final.cold_deserts.swc)
