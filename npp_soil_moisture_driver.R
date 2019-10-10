@@ -10,7 +10,6 @@ library(ggplot2)
 library(sp)
 
 #load initial dataframe
-# ********need to update this dataframe to include the new soil moisture data Bob updated******
 
 test_wd<-"G:/My Drive/range-resilience/Sensitivity/CONUS_rangelands_NPP_Sensitivity/Processing NPP Data/NPP Data processing"
 rangeland_npp_covariates<-readRDS(file.path(test_wd, "npp_climate_rangelands_final_updated_SWC.rds")) #loads file and name it annualSWA_OctDec I guess

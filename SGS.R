@@ -38,6 +38,24 @@ head(sgs_merged)
 sgs_lm<-lm(npp.x~sgs_moisture,data=sgs_merged)
 summary(sgs_lm)
 
+summary(sgs_merged)
+
+#get mean and deviation of soil moisture for each pixel
+sgs_merged_2<-sgs_merged[c(1,2,4,5,7,20)]
+head(sgs_merged_2)
+
+#get mean moisture per grid cell
+sgs_mean_moisture<-aggregate(sgs_moisture ~ x + y,mean,data=sgs_merged_2)
+head(sgs_mean_moisture)
+
+#combine them
+sgs_merged_3<-merge(sgs_mean_moisture, sgs_merged_2,by=c('x','y'))
+head(sgs_merged_3)
+
+#add moisture deviation
+sgs_merged_3$moisture_dev<-sgs_merged_3$sgs_moisture.y-sgs_merged_3$sgs_moisture.x
+head(sgs_merged_3)
+
 #look at average residuals
 #look all residuals
 sgs_merged$resids <-residuals(sgs_lm)
@@ -100,24 +118,28 @@ list.residuals.full.sgs.swc<-list()
 list.residual.rasters.sgs.swc<-list()
 head(sgs_swc)
 head(stratified_final)
+
+#stratified spatial block boostrapping
+
 for(i in 1:1000)
 {
   
   test.strat.semiarid_steppe<-stratified(semiarid_steppe_above_below, c("map"), 0.01)
-  stratified_final<-merge(test.strat.semiarid_steppe, sgs_swc,by=c('x','y'))
-  stratified_final_lm<-lm(npp.x~sgs_moisture
-                          ,stratified_final)
+  stratified_final_sgs<-merge(test.strat.semiarid_steppe, sgs_merged_3,by=c('x','y'))
+  stratified_final_sgs_lm<-lm(npp.x~moisture_dev*sgs_moisture.x
+                          ,stratified_final_sgs)
  
-  newcoef1 <- stratified_final_lm$coefficients 
+  newcoef1 <- stratified_final_sgs_lm$coefficients 
   df<-data.frame(newcoef1)
   df$id = i
   list.coefficients.final.sgs.swc[[i]] <- data.frame(df)
+  
   #look all residuals
-  stratified_final$resids <-residuals(stratified_final_lm)
-  list.residuals.full.sgs.swc[[i]] <- stratified_final
+  stratified_final_sgs$resids <-residuals(stratified_final_sgs_lm)
+  list.residuals.full.sgs.swc[[i]] <- stratified_final_sgs
   
   #look at mean residuals
-  mean.resids<-aggregate(resids~x+y,mean,data=stratified_final)
+  mean.resids<-aggregate(resids~x+y,mean,data=stratified_final_sgs)
   
   #make rasters
   residual.raster<-rasterFromXYZ(mean.resids)
@@ -134,7 +156,7 @@ for(i in 1:1000)
 
 plot(list.variograms.sgs.swc[508])
 
-summary(stratified_final_lm)
+summary(stratified_final_sgs_lm)
 df.coefficients.sgs <- do.call("rbind", list.coefficients.final.sgs.swc)
 head(df.coefficients.sgs)
 df.coefficients.sgs.2 <- cbind(rownames(df.coefficients.sgs), data.frame(df.coefficients.sgs, row.names=NULL))
@@ -146,9 +168,11 @@ df.coefficients.sgs.2$predictor<-gsub(':', '_', df.coefficients.sgs.2$predictor)
 df2.sgs<-reshape(df.coefficients.sgs.2, idvar = "run.id", timevar = "predictor", direction = "wide")
 colnames(df2.sgs)
 head(df2.sgs)
-hist(df2$coefficient.sgs_moisture)
+hist(df2.sgs$coefficient.sgs_moisture.x)
 
+colnames(df2.sgs)[colnames(df2.sgs)=="coefficient.(Intercept)"] <- "intercept"
 
+#95% CI
 error.95 <-function(x) {
   n = length(x)
   se = sd(x)/sqrt(n)
@@ -156,5 +180,65 @@ error.95 <-function(x) {
   return(error)
 }
 
+#produce means and 95% CI for
 error.95(df2$coefficient.sgs_moisture)
 mean(df2$coefficient.sgs_moisture)
+
+#produce a global model
+beta_i_sgs <- mean(df2.sgs$intercept)
+beta_s_sgs <- mean(df2.sgs$coefficient.sgs_moisture.x)
+beta_t_sgs <- mean(df2.sgs$coefficient.moisture_dev)
+beta_sxt_sgs <- mean(df2.sgs$coefficient.moisture_dev_sgs_moisture.x)
+
+#calculate temporal slope at regional the 'average' soil moisture. Otherwise, the raw interpretation of the covariate is at zero
+df2.sgs$temporal_sensitivity <-
+  df2.sgs$coefficient.moisture_dev + df2.sgs$coefficient.moisture_dev_sgs_moisture.x*4.5
+
+#a global model of NPP and soil moisture for SGS
+sgs_fit$NPP= (beta_i_sgs + beta_s_sgs*sgs_fit$swc.mean) + 
+  (beta_t_sgs + beta_sxt_sgs*sgs_fit$swc.mean)*sgs_fit$swc.dev
+
+# toy data
+head(sgs_merged_3)
+hist(sgs_merged_3$sgs_moisture.y)
+summary(sgs_merged_3)
+summary(df2.sgs)
+head(df2.sgs)
+sgs_fit<-expand.grid(list(swc.dev=seq(-5,15,1),swc.mean=seq(0.5,20,1)))
+sgs_fit$ID <- seq.int(nrow(sgs_fit))
+head(sgs_fit)
+
+#
+plot(NPP~swc.mean,data=sgs_fit,xlab='Mean soil moisture',main='SGS NPP-soil moisture dynamics')
+
+ggplot(sgs_fit,aes(swc.dev,NPP,color=as.factor(swc.mean))) +
+  geom_line() +
+  xlab('Soil moisture deviation') +
+  ylab('Net primary productivity') +
+  theme(
+    axis.text.x = element_text(color='black',size=10), #angle=25,hjust=1),
+    axis.text.y = element_text(color='black',size=8),
+    axis.title = element_text(color='black',size=14),
+    axis.ticks = element_line(color='black'),
+    legend.key = element_blank(),
+    strip.background =element_rect(fill="white"),
+    strip.text = element_text(size=15),
+    legend.position = c('none'),
+    panel.background = element_rect(fill=NA),
+    panel.border = element_blank(), #make the borders clear in prep for just have two axes
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"))
+
+for(i in 1:nrow(sedgwick_data)){
+  #row=
+  out = grow_res(seeds_res=1:200,Fec=sedgwick_data$lambda[i],alpha=sedgwick_data$alpha_intra[i],seedSurv=sedgwick_data$s[i],G_res=sedgwick_data$g[i],1)
+  out$Species = sedgwick_data$species[i]
+  list.out[[i]] <- data.frame(out)
+}
+
+npp.predict <-function(x) {
+ 
+  NPP = (beta_i_sgs + beta_s_sgs*sgs_fit$swc.mean) + 
+    (beta_t_sgs + beta_sxt_sgs*sgs_fit$swc.mean)*sgs_fit$swc.dev 
+  
+}
