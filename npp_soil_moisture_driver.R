@@ -56,7 +56,7 @@ california_annuals_below$map <- 'below'
 california_annuals_above  <-california_annuals_1 %>%  dplyr::filter(mm > 403.9)
 california_annuals_above$map <- 'above'
 california_annuals_above_below <- rbind(california_annuals_above,california_annuals_below)
-
+summary(california_annuals_above_below)
 #shortgrass steppe
 semiarid_steppe_1 <-subset(mean_mm_site,region=="semi_arid_steppe")
 summary(semiarid_steppe_1)

@@ -195,7 +195,7 @@ df2.sgs$temporal_sensitivity <-
   df2.sgs$coefficient.moisture_dev + df2.sgs$coefficient.moisture_dev_sgs_moisture.x*4.5
 
 #a global model of NPP and soil moisture for SGS
-sgs_fit$NPP= (beta_i_sgs + beta_s_sgs*sgs_fit$swc.mean) + 
+sgs_fit$NPP = (beta_i_sgs + beta_s_sgs*sgs_fit$swc.mean) + 
   (beta_t_sgs + beta_sxt_sgs*sgs_fit$swc.mean)*sgs_fit$swc.dev
 
 # toy data
@@ -207,6 +207,12 @@ head(df2.sgs)
 sgs_fit<-expand.grid(list(swc.dev=seq(-5,15,1),swc.mean=seq(0.5,20,1)))
 sgs_fit$ID <- seq.int(nrow(sgs_fit))
 head(sgs_fit)
+
+#put into an lm by fitting to toy data
+sgs_global<-lm(NPP~swc.dev*swc.mean,data=sgs_fit)
+summary(sgs_global)
+
+#use the predict function
 
 #
 plot(NPP~swc.mean,data=sgs_fit,xlab='Mean soil moisture',main='SGS NPP-soil moisture dynamics')
