@@ -57,7 +57,7 @@ summary(future_precip)
 head(annualprecip)
 data.frame(future_precip)
 new.precip<-as.data.frame(dALLsites)
-
+head(new.precip)
 
 #add row labels
 new.precip$label <- row.names(new.precip)
