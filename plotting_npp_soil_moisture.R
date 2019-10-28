@@ -160,16 +160,20 @@ spplot(sensitivity_swc_sgs_raster,#scales = list(draw = TRUE),
 
 
 #histogram plot
-ggplot(sensitivity_sgs_swc_coef_only_2,aes(x=coef)) +
-  geom_histogram(binwidth = .5,color='black',fill='white') +
-  geom_vline(xintercept=23.55,size=1,color='red') +
-  xlab('Per-pixel april - september soil moisture sensitivity') +
-  ylab("Count") +
-  ggtitle('Shortgrass steppe') +
+ggplot(yearly.NPP.wet,aes(year,y=NPP)) +
+  #geom_histogram(binwidth = .5,color='black',fill='white') +
+  #geom_vline(xintercept=23.55,size=1,color='red') +
+  #xlab('Per-pixel april - september soil moisture sensitivity') +
+  #ylab("Count") +
+  geom_point(size=4) +
+  geom_line(size=1) +
+  xlab('Year') +
+  ylab('Forage production') +
+  ggtitle('Shortgrass steppe scenario 1: wet sites') +
   theme(
-    axis.text.x = element_text(color='black',size=10), #angle=25,hjust=1),
-    axis.text.y = element_text(color='black',size=12),
-    axis.title = element_text(color='black',size=15),
+    axis.text.x = element_text(color='black',size=15), #angle=25,hjust=1),
+    axis.text.y = element_text(color='black',size=15),
+    axis.title = element_text(color='black',size=25),
     axis.ticks = element_line(color='black'),
     legend.key = element_blank(),
     legend.title = element_blank(),

@@ -1,5 +1,5 @@
 #sgs - remove outliers and produce a global model fit of soil moisture sensitivity
-
+#this run is for sensitivity to april-june soil moisture
 head(sensitivity_sgs_swc_coef_only_2)
 hist(sensitivity_sgs_swc_coef_only_2$coef)
 mean(sensitivity_sgs_swc_coef_only_2$coef)
@@ -213,6 +213,11 @@ sgs_global<-lm(NPP~swc.dev*swc.mean,data=sgs_fit)
 summary(sgs_global)
 
 #use the predict function
+
+
+
+
+
 
 #
 plot(NPP~swc.mean,data=sgs_fit,xlab='Mean soil moisture',main='SGS NPP-soil moisture dynamics')
