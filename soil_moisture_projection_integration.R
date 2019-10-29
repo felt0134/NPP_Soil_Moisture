@@ -219,6 +219,12 @@ head(test.cbind.future)
 as.data.frame(test.cbind.future)
 str(test.cbind.future)
 
+#yearly npp historical data
+head(sgs_merged_3)
+sgs_merged_4<-sgs_merged_3[c(1,2,5,6)]
+head(sgs_merged_4)
+colnames(sgs_merged_4) <- c('x','y','year','NPP')
+
 #yearly npp for future projections
 yearly.NPP<-aggregate(NPP~year,mean,data=test.cbind.future)
 head(yearly.NPP)
@@ -228,10 +234,17 @@ plot(NPP~year,data=yearly.NPP)
 dry_sites_prediction_sgs_sc_1<-test.cbind %>% filter(swc.mean < 4.5)
 summary(dry_sites_prediction_sgs_sc_1)
 head(dry_sites_prediction_sgs_sc_1)
-yearly.NPP.dry<-aggregate(NPP~year,mean,data=dry_sites_prediction_sgs_sc_1)
+dry_sites_prediction_sgs_sc_2<-dry_sites_prediction_sgs_sc_1[c(1,2,3,6)]
+head(dry_sites_prediction_sgs_sc_2)
+
+#merge historical and future together
+dry_sites_prediction_sgs_sc_3<-rbind(dry_sites_prediction_sgs_sc_2,sgs_merged_4)
+yearly.NPP.dry<-aggregate(NPP~year,mean,data=dry_sites_prediction_sgs_sc_2)
 head(yearly.NPP.dry)
 plot(NPP~year,data=yearly.NPP.dry)
 sd(yearly.NPP.dry$NPP)
+yearly.NPP.dry$site<-'Dry'
+
 #wetsites
 wet_sites_prediction_sgs_sc_1<-test.cbind %>% filter(swc.mean > 4.5)
 summary(wet_sites_prediction_sgs_sc_1)
@@ -240,6 +253,7 @@ yearly.NPP.wet<-aggregate(NPP~year,mean,data=wet_sites_prediction_sgs_sc_1)
 head(yearly.NPP.wet)
 plot(NPP~year,data=yearly.NPP.wet)
 sd(yearly.NPP.wet$NPP)
+yearly.NPP.wet$site<-'Wet'
 
 #getting decadal averages for whole region
 sgs_swc_sc_1_future_2020_2030 <- test.cbind.future %>% dplyr::filter(test.cbind.future$year < 2030)
@@ -249,11 +263,76 @@ yearly.NPP<-aggregate(NPP~year,mean,data=test.cbind.future)
 head(yearly.NPP)
 plot(NPP~year,data=yearly.NPP)
 
+#get mean for past 30 years
+mean.npp.1986.2015.sgs<-aggregate(npp.x~x+y,mean,data=sgs_merged)
+head(mean.npp.1986.2015.sgs)
+summary(mean.npp.1986.2015.sgs)
+mean.npp.1986.2015.sgs.raster<-rasterFromXYZ(mean.npp.1986.2015.sgs)
+plot(mean.npp.1986.2015.sgs)
+mean.npp.1986.2015.sgs$time <- 'Historical'
+mean.npp.1986.2015.sgs$NPP<- mean.npp.1986.2015.sgs$npp.x
+mean.npp.1986.2015.sgs.2<-mean.npp.1986.2015.sgs[-3]
+head(mean.npp.1986.2015.sgs.2)
+
+#get mean for next 30 years
+mean.npp.2020.2060.sgs<-aggregate(NPP~x+y,mean,data=test.cbind.future)
+head(mean.npp.2020.2060.sgs)
+summary(mean.npp.2020.2060.sgs)
+mean.npp.2020.2060.sgs.raster<-rasterFromXYZ(mean.npp.2020.2060.sgs)
+plot(mean.npp.2020.2060.sgs)
+mean.npp.2020.2060.sgs$time<- 'Future'
+
+merge.past.future<-rbind(mean.npp.2020.2060.sgs,mean.npp.1986.2015.sgs.2)
+head(merge.past.future)
+summary(merge.past.future)
+
+par(mfrow=c(1,1))
+
 #2020-2030 mean NPP
 mean.npp.2020.2030<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2020_2030)
 head(mean.npp.2020.2030)
 mean.npp.2020.2030.raster<-rasterFromXYZ(mean.npp.2020.2030)
 plot(mean.npp.2020.2030.raster)
+
+#graphs
+break_mean_sgs_npp<-quantile(mean.npp.1986.2015.sgs$npp.x,seq(from=0.01, to = .99,by=0.01),na.rm=TRUE)
+
+one<-spplot(mean.npp.2020.2060.sgs.raster,#scales = list(draw = TRUE),
+       at=break_mean_sgs_npp,
+       asp=1,
+       col.regions =
+         rev(terrain.colors(length(break_mean_sgs_npp)-1)),
+       main="mean NPP 2020-2060") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
+two<-spplot(mean.npp.1986.2015.sgs.raster,#scales = list(draw = TRUE),
+            at=break_mean_sgs_npp,
+            asp=1,
+            col.regions =
+              rev(terrain.colors(length(break_mean_sgs_npp)-1)),
+            main="mean NPP 1986-2015") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
+grid.arrange(two,one,ncol=2)
+
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(lattice)
+
+#2020-2030 mean NPP
+mean.npp.2020.2030<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2020_2030)
+head(mean.npp.2020.2030)
+mean.npp.2020.2030.raster<-rasterFromXYZ(mean.npp.2020.2030)
+plot(mean.npp.2020.2030.raster)
+
+twenty_thirty<-spplot(mean.npp.2020.2030.raster,#scales = list(draw = TRUE),
+            at=break_mean_sgs_npp,
+            asp=1,
+            col.regions =
+              rev(terrain.colors(length(break_mean_sgs_npp)-1)),
+            main="mean NPP 2020-2029") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
 
 #2030-2040 mean NPP
 sgs_swc_sc_1_future_2030_2040 <- test.cbind.future %>% dplyr::filter(2029 < year & year < 2040)
@@ -263,6 +342,14 @@ head(mean.npp.2030.2040)
 mean.npp.2030.2040.raster<-rasterFromXYZ(mean.npp.2030.2040)
 plot(mean.npp.2030.2040.raster)
 
+thirty_forty<-spplot(mean.npp.2030.2040.raster,#scales = list(draw = TRUE),
+                      at=break_mean_sgs_npp,
+                      asp=1,
+                      col.regions =
+                        rev(terrain.colors(length(break_mean_sgs_npp)-1)),
+                      main="mean NPP 2030-2039") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
 #2040-2050 mean NPP
 sgs_swc_sc_1_future_2040_2050 <- test.cbind.future %>% dplyr::filter(2039 < year & year < 2050)
 head(sgs_swc_sc_1_future_2040_2050)
@@ -271,6 +358,14 @@ head(mean.npp.2040.2050)
 mean.npp.2040.2050.raster<-rasterFromXYZ(mean.npp.2040.2050)
 plot(mean.npp.2040.2050.raster)
 
+forty_fifty<-spplot(mean.npp.2040.2050.raster,#scales = list(draw = TRUE),
+                     at=break_mean_sgs_npp,
+                     asp=1,
+                     col.regions =
+                       rev(terrain.colors(length(break_mean_sgs_npp)-1)),
+                     main="mean NPP 2040-2049") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
 #2050-2060 mean NPP
 sgs_swc_sc_1_future_2050_2060 <- test.cbind.future %>% dplyr::filter(year > 2049)
 head(sgs_swc_sc_1_future_2050_2060)
@@ -278,4 +373,16 @@ mean.npp.2050.2060<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2050_2060)
 head(mean.npp.2050.2060)
 mean.npp.2050.2060.raster<-rasterFromXYZ(mean.npp.2050.2060)
 plot(mean.npp.2050.2060.raster)
+
+
+fifty_sixty<-spplot(mean.npp.2050.2060.raster,#scales = list(draw = TRUE),
+                    at=break_mean_sgs_npp,
+                    asp=1,
+                    col.regions =
+                      rev(terrain.colors(length(break_mean_sgs_npp)-1)),
+                    main="mean NPP 2050-2060") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
+grid.arrange(twenty_thirty,thirty_forty,forty_fifty,fifty_sixty,nrow=2)
+
 
