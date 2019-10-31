@@ -212,44 +212,25 @@ head(sgs_fit)
 sgs_global<-lm(NPP~swc.dev*swc.mean,data=sgs_fit)
 summary(sgs_global)
 
-#use the predict function
+#produce dataframe of residuals to draw from
+df.residuals.sgs <- do.call("rbind", list.residuals.full.sgs.swc)
+head(df.residuals.sgs)
+mean.resids.x.y<-aggregate(resids ~ x + y, mean, data = df.residuals.sgs)
+df.residuals.sgs.2 <- cbind(rownames(df.residuals.sgs), data.frame(df.residuals.sgs, row.names=NULL))
+head(df.residuals.sgs.2)
+df.residuals.sgs.3<-df.residuals.sgs.2[c(1,13)]
+head(df.residuals.sgs.3)
+colnames(df.residuals.sgs.3)  <- c("run","resid")
 
+df.coefficients.sgs.2$predictor<-gsub('[[:digit:]]+', '', df.coefficients.sgs.2$predictor)
+df.coefficients.sgs.2$predictor<-gsub(':', '_', df.coefficients.sgs.2$predictor)
+df2.sgs<-reshape(df.coefficients.sgs.2, idvar = "run.id", timevar = "predictor", direction = "wide")
+colnames(df2.sgs)
+head(df2.sgs)
+hist(df2.sgs$coefficient.sgs_moisture.x)
 
+colnames(df2.sgs)[colnames(df2.sgs)=="coefficient.(Intercept)"] <- "intercept"
 
-
-
-
-#
-plot(NPP~swc.mean,data=sgs_fit,xlab='Mean soil moisture',main='SGS NPP-soil moisture dynamics')
-
-ggplot(sgs_fit,aes(swc.dev,NPP,color=as.factor(swc.mean))) +
-  geom_line() +
-  xlab('Soil moisture deviation') +
-  ylab('Net primary productivity') +
-  theme(
-    axis.text.x = element_text(color='black',size=10), #angle=25,hjust=1),
-    axis.text.y = element_text(color='black',size=8),
-    axis.title = element_text(color='black',size=14),
-    axis.ticks = element_line(color='black'),
-    legend.key = element_blank(),
-    strip.background =element_rect(fill="white"),
-    strip.text = element_text(size=15),
-    legend.position = c('none'),
-    panel.background = element_rect(fill=NA),
-    panel.border = element_blank(), #make the borders clear in prep for just have two axes
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"))
-
-for(i in 1:nrow(sedgwick_data)){
-  #row=
-  out = grow_res(seeds_res=1:200,Fec=sedgwick_data$lambda[i],alpha=sedgwick_data$alpha_intra[i],seedSurv=sedgwick_data$s[i],G_res=sedgwick_data$g[i],1)
-  out$Species = sedgwick_data$species[i]
-  list.out[[i]] <- data.frame(out)
-}
-
-npp.predict <-function(x) {
- 
-  NPP = (beta_i_sgs + beta_s_sgs*sgs_fit$swc.mean) + 
-    (beta_t_sgs + beta_sxt_sgs*sgs_fit$swc.mean)*sgs_fit$swc.dev 
-  
-}
+hist(df.residuals.sgs.3$resid)
+?rnorm
+?sample

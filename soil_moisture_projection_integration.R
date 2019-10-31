@@ -168,9 +168,6 @@ for(i in 2:ncol(new.swc_jul_sep_joindat_3)){
 stack_test<-stack(future_swc_jul_sep_sc2[45:85])
 plot(stack_test)
 
-#stopped here
-# next step is to  focus on future projection scenario 2020 to 2050, put that in a workable data frame, and run through global model
-
 #change to dataframe
 future_swc_jul_sep_sgs = rasterToPoints(stack_test); future_swc_jul_sep_sgs_df = data.frame(future_swc_jul_sep_sgs)
 head(future_swc_jul_sep_sgs_df)
@@ -206,18 +203,59 @@ colnames(merge_future_hist_sc_2) <-c('x','y','year','swc.mean','swc.dev')
 head(merge_future_hist_sc_2)
 summary(merge_future_hist_sc_2)
 
+#run historical data through global model
+sgs_swc_historical<-sgs_merged_3[c(1,2,3,5,6,8)]
+head(sgs_swc_historical)
+colnames(sgs_swc_historical) <- c('x','y','swc.mean','year','npp.obs','swc.dev')
+str(sgs_swc_historical)
+hist.cbind<-cbind(sgs_swc_historical, predict(sgs_global,sgs_swc_historical))
+head(hist.cbind)
+colnames(hist.cbind) <- c('x','y','swc.mean','year','npp.obs','swc.dev','npp.pred')
+hist.cbind$resid<-hist.cbind$npp.obs - hist.cbind$npp.pred
+str(hist.cbind)
+median_dev<-aggregate(resid~ x + y,median,data=hist.cbind)
+mean_npp_obs<-aggregate(npp.obs~ x + y,mean,data=hist.cbind)
+mean_npp_obs_pred<-aggregate(npp.pred~ x + y,mean,data=hist.cbind)
+head(median_dev)
+
+View(median_dev)
+
 #region-wide predictions
 test.cbind<-cbind(merge_future_hist_sc_2, predict(sgs_global,merge_future_hist_sc_2))
 head(test.cbind)
 test.cbind$year <- as.numeric(as.character(test.cbind$year))
 colnames(test.cbind)<-c('x','y','year','swc.mean','dev','NPP')
+head(hist.cbind)
+test.cbind.rsds<-merge(test.cbind,median_dev,by=c('x','y'))
+test.cbind.rsds$total<-test.cbind.rsds$NPP + test.cbind.rsds$resid
+head(test.cbind.rsds)
+hist(test.cbind.rsds$total)
+hist(test.cbind.rsds$NPP)
+mean.npp.pred<-aggregate(NPP~ x + y,mean,data=test.cbind.rsds)
+mean.npp.total<-aggregate(total~ x + y,mean,data=test.cbind.rsds)
 str(test.cbind)
 
+#add residual variation
+mean(df.residuals.sgs.3$resid)
+summary(df.residuals.sgs.3)
+test.cbind$total = test.cbind$NPP + rnorm(1, df.residuals.sgs.3$resid)
+for(i in 1:nrow(test.cbind)){
+  test.cbind$total[i] <- test.cbind$NPP[i] +  rnorm(1,mean=9.74,sd=(2*48.091))
+}
+
+#stopped here
+
+hist(test.cbind$NPP)
+hist(test.cbind$total)
+head(yearly.NPP)
+sd(df.residuals.sgs.3$resid)
 #get rid of excess columns
-test.cbind.future<-test.cbind[c(1,2,3,6)]
+test.cbind.future<-test.cbind[c(1,2,3,6,7,8)]
 head(test.cbind.future)
 as.data.frame(test.cbind.future)
 str(test.cbind.future)
+summary(test.cbind.future)
+
 
 #yearly npp historical data
 head(sgs_merged_3)
@@ -226,9 +264,38 @@ head(sgs_merged_4)
 colnames(sgs_merged_4) <- c('x','y','year','NPP')
 
 #yearly npp for future projections
-yearly.NPP<-aggregate(NPP~year,mean,data=test.cbind.future)
+#purely soil moisture prediction
+yearly.NPP<-aggregate(NPP~year,mean,data=test.cbind.rsds)
 head(yearly.NPP)
 plot(NPP~year,data=yearly.NPP)
+summary(yearly.NPP)
+yearly.total<-aggregate(total~year,mean,data=test.cbind.rsds)
+head(yearly.total)
+plot(total~year,data=yearly.total)
+summary(yearly.total)
+View(test.cbind.future)
+hist.cbind
+#peters plotting code
+# figures based on histograms
+my_breaks=seq(0,400,5)
+my_colors=c(rgb(0,0,1,1/4),rgb(1,0,0,1/4))
+h1 <- hist(mean_npp_obs_pred$npp.pred,breaks=my_breaks)
+h2 <- hist(mean_npp_obs$npp.obs,breaks=my_breaks)  # this is the histogram of observed values
+h3 <- hist(mean.npp.pred$NPP,breaks=my_breaks) 
+h4 <- hist(mean.npp.total$total,breaks=my_breaks)
+par(mfrow=c(2,1),mar=c(4,4,1,1))
+plot(h1,col=my_colors[1],xlim=c(0,400),ylim=c(0,500),xlab="NPP",
+     main="Variation caused by soil moisture")
+plot(h3,col=my_colors[2],xlim=c(0,400),ylim=c(0,500),add=T)
+plot(h2,col=my_colors[1],xlim=c(0,400),ylim=c(0,500),xlab="NPP",
+     main="Total variation")
+plot(h4,col=my_colors[2],xlim=c(0,400),ylim=c(0,500),add=T)
+legend("topleft",c("Historical","Future"),
+       fill=my_colors,cex=0.7,bty="n")
+
+
+h1 <- hist(yearly.NPP$NPP,breaks=my_breaks)
+h2 <- hist(yearly.total$total,breaks=my_breaks) 
 
 #dry sites
 dry_sites_prediction_sgs_sc_1<-test.cbind %>% filter(swc.mean < 4.5)
@@ -254,6 +321,9 @@ head(yearly.NPP.wet)
 plot(NPP~year,data=yearly.NPP.wet)
 sd(yearly.NPP.wet$NPP)
 yearly.NPP.wet$site<-'Wet'
+
+#combine wet and dry
+wet_dry_futue<-rbind(yearly.NPP.wet,yearly.NPP.dry)
 
 #getting decadal averages for whole region
 sgs_swc_sc_1_future_2020_2030 <- test.cbind.future %>% dplyr::filter(test.cbind.future$year < 2030)
@@ -385,4 +455,6 @@ fifty_sixty<-spplot(mean.npp.2050.2060.raster,#scales = list(draw = TRUE),
 
 grid.arrange(twenty_thirty,thirty_forty,forty_fifty,fifty_sixty,nrow=2)
 
-
+#plotting
+h1 <- hist(preds_x,breaks=my_breaks)
+h2 <- hist(preds_x + resids_x,breaks=my_breaks) 
