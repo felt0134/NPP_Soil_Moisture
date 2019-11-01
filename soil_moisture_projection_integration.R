@@ -192,10 +192,10 @@ future_mean_swc_sc_1<-aggregate(future_swc_sc_1~x + y,mean,data=sgs_swc_2020_206
 head(future_mean_swc_sc_1)
 
 #merge historical and future projections
-
-merge_future_hist_sc_1<-merge(sgs_swc_2020_2060,sgs_mean_moisture,by=c('x','y'))
+#both changes in mean and variance
+merge_future_hist_sc_1<-merge(sgs_swc_2020_2060,future_mean_swc_sc_1,by=c('x','y'))
 head(merge_future_hist_sc_1)
-merge_future_hist_sc_1$swc.dev<-merge_future_hist_sc_1$future_swc_sc_1 - merge_future_hist_sc_1$sgs_moisture
+merge_future_hist_sc_1$swc.dev<-merge_future_hist_sc_1$future_swc_sc_1.x - merge_future_hist_sc_1$future_swc_sc_1.y
 
 #final touch up
 merge_future_hist_sc_2<-merge_future_hist_sc_1[c(1,2,3,5,6)]
@@ -211,37 +211,145 @@ str(sgs_swc_historical)
 hist.cbind<-cbind(sgs_swc_historical, predict(sgs_global,sgs_swc_historical))
 head(hist.cbind)
 colnames(hist.cbind) <- c('x','y','swc.mean','year','npp.obs','swc.dev','npp.pred')
-hist.cbind$resid<-hist.cbind$npp.obs - hist.cbind$npp.pred
-str(hist.cbind)
-median_dev<-aggregate(resid~ x + y,median,data=hist.cbind)
-mean_npp_obs<-aggregate(npp.obs~ x + y,mean,data=hist.cbind)
-mean_npp_obs_pred<-aggregate(npp.pred~ x + y,mean,data=hist.cbind)
-head(median_dev)
 
-View(median_dev)
+#get yearly residuals
+hist.cbind$resid<-hist.cbind$npp.obs - hist.cbind$npp.pred
+
+#get npp mean
+mean.npp.hist<-aggregate(npp.obs ~ x + y,mean,data=hist.cbind)
+mean(mean.npp.hist$npp.obs)
+#get npp sd
+sd.npp.hist<-aggregate(npp.obs~ x + y,sd,data=hist.cbind)
+head(sd.npp.hist)
+mean(sd.npp.hist$npp.obs)
+#get mean resid
+mean.resid.hist<-aggregate(resid~ x + y,mean,data=hist.cbind)
+#get sd resid
+var.resid.hist<-aggregate(resid~ x + y,var,data=hist.cbind)
+
+head(var.resid.hist)
 
 #region-wide predictions
 test.cbind<-cbind(merge_future_hist_sc_2, predict(sgs_global,merge_future_hist_sc_2))
 head(test.cbind)
 test.cbind$year <- as.numeric(as.character(test.cbind$year))
 colnames(test.cbind)<-c('x','y','year','swc.mean','dev','NPP')
-head(hist.cbind)
 test.cbind.rsds<-merge(test.cbind,median_dev,by=c('x','y'))
-test.cbind.rsds$total<-test.cbind.rsds$NPP + test.cbind.rsds$resid
-head(test.cbind.rsds)
-hist(test.cbind.rsds$total)
-hist(test.cbind.rsds$NPP)
-mean.npp.pred<-aggregate(NPP~ x + y,mean,data=test.cbind.rsds)
-mean.npp.total<-aggregate(total~ x + y,mean,data=test.cbind.rsds)
-str(test.cbind)
 
-#add residual variation
-mean(df.residuals.sgs.3$resid)
-summary(df.residuals.sgs.3)
-test.cbind$total = test.cbind$NPP + rnorm(1, df.residuals.sgs.3$resid)
-for(i in 1:nrow(test.cbind)){
-  test.cbind$total[i] <- test.cbind$NPP[i] +  rnorm(1,mean=9.74,sd=(2*48.091))
-}
+#get future mean NPP
+#get npp mean
+mean.npp.future<-aggregate(NPP ~ x + y,mean,data=test.cbind)
+#get npp sd
+var.npp.future<-aggregate(NPP ~ x + y,var,data=test.cbind)
+head(var.npp.future)
+
+#merge relvent datasets
+
+#means
+merge.means<-merge(mean.npp.future,mean.resid.hist,by=c('x','y'))
+head(merge.means)
+merge.means$npp.future<-merge.means$NPP + merge.means$resid
+summary(merge.means)
+merge.means.2<-merge(merge.means,mean.npp.hist,by=c('x','y'))
+head(merge.means.2)
+merge.means.2$npp.change<-merge.means.2$npp.future - merge.means.2$npp.obs
+hist(merge.means.2$npp.change)
+merge.means.3<-merge.means.2[c(1,2,7)]
+mean.change.raster<-rasterFromXYZ(merge.means.3)
+plot(mean.change.raster)
+
+#mean changes
+break_mean_sgs_npp_change<-quantile(merge.means.3$npp.change,seq(from=0.01, to = 0.99,by=0.01),na.rm=TRUE)
+par(mfrow=c(1,1))
+one<-spplot(mean.change.raster,#scales = list(draw = TRUE),
+            at=break_mean_sgs_npp_change,
+            asp=1,
+            col.regions =
+              rev(terrain.colors(length(break_mean_sgs_npp_change)-1)),
+            main="Change in mean rangeland productivity") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
+#standard deviations
+merge.var<-merge(var.npp.future,var.resid.hist,by=c('x','y'))
+head(merge.var)
+merge.var$future.sd<-sqrt(merge.var$NPP + merge.var$resid)
+mean(merge.var$future.sd)
+#merge to compare with historical sds
+
+merge.var.2<-merge(merge.var,sd.npp.hist,by=c('x','y'))
+head(merge.var.2)
+merge.var.2$future.sd.change <- merge.var.2$future.sd - merge.var.2$npp.obs
+hist(merge.var.2$future.sd.change)
+merge.var.3<-merge.var.2[c(1,2,7)]
+var.change.raster<-rasterFromXYZ(merge.var.3)
+plot(var.change.raster)
+summary(merge.var.2)
+
+# changes on variation
+break_sd_sgs_npp_change<-quantile(merge.var.3$future.sd.change,seq(from=0.01, to = 0.99,by=0.01),na.rm=TRUE)
+
+one<-spplot(var.change.raster,#scales = list(draw = TRUE),
+            at=break_sd_sgs_npp_change,
+            asp=1,
+            col.regions =
+              rev(heat_hcl(length(break_sd_sgs_npp_change)-1)),
+            main="Change in variability of rangeland productivity") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
+
+h1<-density(rnorm(1000,mean=182.85,sd=39.84))
+h2<-density(rnorm(1000,mean=187.82,sd=41.45))
+plot(h1)
+plot(h2)
+
+#stopped here
+
+#graphs
+
+
+
+
+#tests
+
+#region-wide future estimates
+mean.future<- mean(test.cbind$NPP) + mean(hist.cbind$resid)
+sd.future <-sqrt(var(test.cbind$NPP) + var(hist.cbind$resid))
+xx <- seq(min(merge.means.2$npp.future),max(merge.means.2$npp.future),1)
+
+plot(dnorm(xx,mean=mean.future,sd = sd.future)),
+     xlab="NPP",ylab="Density",ylim=c(0,0.03),type="l",lwd=2,col=my_colors[1],
+     main="Total variation"))
+
+lines(density(merge.means.2$npp.future),
+      lwd=2,col=my_colors[2])
+
+#historical distributions
+mean.past<-mean(hist.cbind$npp.obs)
+sd.past<-sd(hist.cbind$npp.obs)
+
+x <- seq(60, 700, length.out=100)
+mean.future<-mean(merge.means$npp.future)
+sd.future<-mean(merge.var$future.sd)
+lines(x, y, col = "red")
+pnorm()
+par(mfrow=c(1,1))
+plot(density(bootstrap_historic),
+     xlab="NPP",ylab="Density", xlim=c(-70,250), ylim=c(0,0.02),
+     type="l",lwd=2,col=my_colors[1],
+     main="Total variation")
+lines(density(bootstrap_future),
+      lwd=2,col=my_colors[2])
+legend("topleft",c("Historical","Future"),
+       lty="solid",lwd=2, col=my_colors,cex=0.7,bty="n")
+
+# Calculate shifts in means and variances of the response
+mean_past = mean(y)
+sd_past = sd(y)
+q10_past = quantile(y,0.1)
+
+mean_future = mean(preds_xnew) + mean(resids_x)
+sd_future = sqrt(var(preds_xnew) + var(resids_x))
+prob_q10_future = pnorm(q10_past,mean_future,sd_future)
 
 #stopped here
 
@@ -333,128 +441,8 @@ yearly.NPP<-aggregate(NPP~year,mean,data=test.cbind.future)
 head(yearly.NPP)
 plot(NPP~year,data=yearly.NPP)
 
-#get mean for past 30 years
-mean.npp.1986.2015.sgs<-aggregate(npp.x~x+y,mean,data=sgs_merged)
-head(mean.npp.1986.2015.sgs)
-summary(mean.npp.1986.2015.sgs)
-mean.npp.1986.2015.sgs.raster<-rasterFromXYZ(mean.npp.1986.2015.sgs)
-plot(mean.npp.1986.2015.sgs)
-mean.npp.1986.2015.sgs$time <- 'Historical'
-mean.npp.1986.2015.sgs$NPP<- mean.npp.1986.2015.sgs$npp.x
-mean.npp.1986.2015.sgs.2<-mean.npp.1986.2015.sgs[-3]
-head(mean.npp.1986.2015.sgs.2)
-
-#get mean for next 30 years
-mean.npp.2020.2060.sgs<-aggregate(NPP~x+y,mean,data=test.cbind.future)
-head(mean.npp.2020.2060.sgs)
-summary(mean.npp.2020.2060.sgs)
-mean.npp.2020.2060.sgs.raster<-rasterFromXYZ(mean.npp.2020.2060.sgs)
-plot(mean.npp.2020.2060.sgs)
-mean.npp.2020.2060.sgs$time<- 'Future'
-
-merge.past.future<-rbind(mean.npp.2020.2060.sgs,mean.npp.1986.2015.sgs.2)
-head(merge.past.future)
-summary(merge.past.future)
-
-par(mfrow=c(1,1))
-
-#2020-2030 mean NPP
-mean.npp.2020.2030<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2020_2030)
-head(mean.npp.2020.2030)
-mean.npp.2020.2030.raster<-rasterFromXYZ(mean.npp.2020.2030)
-plot(mean.npp.2020.2030.raster)
-
-#graphs
-break_mean_sgs_npp<-quantile(mean.npp.1986.2015.sgs$npp.x,seq(from=0.01, to = .99,by=0.01),na.rm=TRUE)
-
-one<-spplot(mean.npp.2020.2060.sgs.raster,#scales = list(draw = TRUE),
-       at=break_mean_sgs_npp,
-       asp=1,
-       col.regions =
-         rev(terrain.colors(length(break_mean_sgs_npp)-1)),
-       main="mean NPP 2020-2060") +
-  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
-
-two<-spplot(mean.npp.1986.2015.sgs.raster,#scales = list(draw = TRUE),
-            at=break_mean_sgs_npp,
-            asp=1,
-            col.regions =
-              rev(terrain.colors(length(break_mean_sgs_npp)-1)),
-            main="mean NPP 1986-2015") +
-  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
-
-grid.arrange(two,one,ncol=2)
 
 library(gridExtra)
 library(grid)
 library(ggplot2)
 library(lattice)
-
-#2020-2030 mean NPP
-mean.npp.2020.2030<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2020_2030)
-head(mean.npp.2020.2030)
-mean.npp.2020.2030.raster<-rasterFromXYZ(mean.npp.2020.2030)
-plot(mean.npp.2020.2030.raster)
-
-twenty_thirty<-spplot(mean.npp.2020.2030.raster,#scales = list(draw = TRUE),
-            at=break_mean_sgs_npp,
-            asp=1,
-            col.regions =
-              rev(terrain.colors(length(break_mean_sgs_npp)-1)),
-            main="mean NPP 2020-2029") +
-  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
-
-#2030-2040 mean NPP
-sgs_swc_sc_1_future_2030_2040 <- test.cbind.future %>% dplyr::filter(2029 < year & year < 2040)
-head(sgs_swc_sc_1_future_2030_2040)
-mean.npp.2030.2040<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2030_2040)
-head(mean.npp.2030.2040)
-mean.npp.2030.2040.raster<-rasterFromXYZ(mean.npp.2030.2040)
-plot(mean.npp.2030.2040.raster)
-
-thirty_forty<-spplot(mean.npp.2030.2040.raster,#scales = list(draw = TRUE),
-                      at=break_mean_sgs_npp,
-                      asp=1,
-                      col.regions =
-                        rev(terrain.colors(length(break_mean_sgs_npp)-1)),
-                      main="mean NPP 2030-2039") +
-  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
-
-#2040-2050 mean NPP
-sgs_swc_sc_1_future_2040_2050 <- test.cbind.future %>% dplyr::filter(2039 < year & year < 2050)
-head(sgs_swc_sc_1_future_2040_2050)
-mean.npp.2040.2050<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2040_2050)
-head(mean.npp.2040.2050)
-mean.npp.2040.2050.raster<-rasterFromXYZ(mean.npp.2040.2050)
-plot(mean.npp.2040.2050.raster)
-
-forty_fifty<-spplot(mean.npp.2040.2050.raster,#scales = list(draw = TRUE),
-                     at=break_mean_sgs_npp,
-                     asp=1,
-                     col.regions =
-                       rev(terrain.colors(length(break_mean_sgs_npp)-1)),
-                     main="mean NPP 2040-2049") +
-  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
-
-#2050-2060 mean NPP
-sgs_swc_sc_1_future_2050_2060 <- test.cbind.future %>% dplyr::filter(year > 2049)
-head(sgs_swc_sc_1_future_2050_2060)
-mean.npp.2050.2060<-aggregate(NPP~x + y,mean,data=sgs_swc_sc_1_future_2050_2060)
-head(mean.npp.2050.2060)
-mean.npp.2050.2060.raster<-rasterFromXYZ(mean.npp.2050.2060)
-plot(mean.npp.2050.2060.raster)
-
-
-fifty_sixty<-spplot(mean.npp.2050.2060.raster,#scales = list(draw = TRUE),
-                    at=break_mean_sgs_npp,
-                    asp=1,
-                    col.regions =
-                      rev(terrain.colors(length(break_mean_sgs_npp)-1)),
-                    main="mean NPP 2050-2060") +
-  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
-
-grid.arrange(twenty_thirty,thirty_forty,forty_fifty,fifty_sixty,nrow=2)
-
-#plotting
-h1 <- hist(preds_x,breaks=my_breaks)
-h2 <- hist(preds_x + resids_x,breaks=my_breaks) 
