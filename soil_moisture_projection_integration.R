@@ -2,6 +2,11 @@ library(raster)
 library(plyr)
 library(dplyr)
 library(reshape2)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(lattice)
+library(colorspace)
 
 ########### region-identifying rasters  #############
 sites <- "G:/My Drive/range-resilience/Sensitivity/CONUS_rangelands_NPP_Sensitivity/climate_data_for_import/RasterbySiteID3.tif" 
@@ -185,13 +190,48 @@ head(merge_future_swc_scenario_1)
 merge_future_swc_scenario_1$future_swc_sc_1<-merge_future_swc_scenario_1$value + merge_future_swc_scenario_1$value.2
 
 sgs_swc_2020_2060<-merge_future_swc_scenario_1[c(1,2,3,6)]
-head(sgs_swc_2020_2060)
 
-#future means if needed
+#future swc means
 future_mean_swc_sc_1<-aggregate(future_swc_sc_1~x + y,mean,data=sgs_swc_2020_2060)
 head(future_mean_swc_sc_1)
+hist(future_mean_swc_sc_1$future_swc_sc_1)
+summary(future_mean_swc_sc_1)
+#future swc sd
+future_sd_swc_sc_1<-aggregate(future_swc_sc_1~x + y,sd,data=sgs_swc_2020_2060)
+head(future_sd_swc_sc_1)
+hist(future_sd_swc_sc_1$future_swc_sc_1)
+summary(future_sd_swc_sc_1)
+
+#historical means
+head(sgs_merged_2)
+historical_mean_swc_sc_1<-aggregate(sgs_moisture~x + y,mean,data=sgs_merged_2)
+hist(historical_mean_swc_sc_1$sgs_moisture)
+summary(historical_mean_swc_sc_1)
+mean.swc.historical<-mean(historical_mean_swc_sc_1$sgs_moisture)
+#historical swc sd
+historical_sd_swc_sc_1<-aggregate(sgs_moisture~x + y,sd,data=sgs_merged_2)
+hist(historical_sd_swc_sc_1$sgs_moisture)
+summary(historical_sd_swc_sc_1)
 
 #merge historical and future projections
+merge.swc.future.historical<-merge(historical_mean_swc_sc_1, future_mean_swc_sc_1, by=c('x','y'))
+head(merge.swc.future.historical)
+merge.swc.future.historical$mean.change<-merge.swc.future.historical$future_swc_sc_1 - merge.swc.future.historical$sgs_moisture
+hist(merge.swc.future.historical$mean.change)
+merge.swc.future.historical_2<-merge.swc.future.historical[c(1,2,5)]
+head(merge.swc.future.historical_2)
+merge.swc.future.historical_2_raster<-rasterFromXYZ(merge.swc.future.historical_2)
+plot(merge.swc.future.historical_2_raster)
+break_mean_sgs_swc_change<-quantile(merge.swc.future.historical_2$mean.change,seq(from=0.01, to = 0.99,by=0.01),na.rm=TRUE)
+
+one<-spplot(merge.swc.future.historical_2_raster,#scales = list(draw = TRUE),
+            at=break_mean_sgs_swc_change,
+            asp=1,
+            col.regions =
+              rev(topo.colors(length(break_mean_sgs_swc_change)-1)),
+            main="Change in mean soil moisture: next 30 vs. last 30 yrs") +
+  latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
+
 #both changes in mean and variance
 merge_future_hist_sc_1<-merge(sgs_swc_2020_2060,future_mean_swc_sc_1,by=c('x','y'))
 head(merge_future_hist_sc_1)
@@ -274,6 +314,7 @@ merge.var<-merge(var.npp.future,var.resid.hist,by=c('x','y'))
 head(merge.var)
 merge.var$future.sd<-sqrt(merge.var$NPP + merge.var$resid)
 mean(merge.var$future.sd)
+
 #merge to compare with historical sds
 
 merge.var.2<-merge(merge.var,sd.npp.hist,by=c('x','y'))
@@ -296,36 +337,45 @@ one<-spplot(var.change.raster,#scales = list(draw = TRUE),
             main="Change in variability of rangeland productivity") +
   latticeExtra::layer(sp.polygons(states_all_sites, lwd = 0.1))
 
+#merge sd and mean change
+merge.sd.mean.change<-merge(merge.var.3,merge.means.3,by=c('x','y'))
+head(merge.sd.mean.change)
+plot(npp.change~future.sd.change,data=merge.sd.mean.change)
 
-h1<-density(rnorm(1000,mean=182.85,sd=39.84))
-h2<-density(rnorm(1000,mean=187.82,sd=41.45))
-plot(h1)
-plot(h2)
-
-#stopped here
-
-#graphs
-
-
-
-
-#tests
-
-#region-wide future estimates
-mean.future<- mean(test.cbind$NPP) + mean(hist.cbind$resid)
-sd.future <-sqrt(var(test.cbind$NPP) + var(hist.cbind$resid))
-xx <- seq(min(merge.means.2$npp.future),max(merge.means.2$npp.future),1)
-
-plot(dnorm(xx,mean=mean.future,sd = sd.future)),
-     xlab="NPP",ylab="Density",ylim=c(0,0.03),type="l",lwd=2,col=my_colors[1],
-     main="Total variation"))
-
-lines(density(merge.means.2$npp.future),
-      lwd=2,col=my_colors[2])
+#plot region-wide distributions
+par(mfrow=c(1,1))
+historical<-density(rnorm(10000,mean=186.6389,sd=57.75353))
+h2<-density(rnorm(10000,mean=187.82,sd=41.45))
+plot(h1,col='blue')
+lines((h2),col='blue')
 
 #historical distributions
 mean.past<-mean(hist.cbind$npp.obs)
 sd.past<-sd(hist.cbind$npp.obs)
+q10_past = quantile(hist.cbind$npp.obs,0.05)
+
+# future distributions
+mean.future<- mean(test.cbind$NPP) + mean(hist.cbind$resid)
+sd.future <-sqrt(var(test.cbind$NPP) + var(hist.cbind$resid))
+prob_q10_future = pnorm(q10_past,mean.future,sd.future)
+prob_q10_past = pnorm(q10_past,mean.past,mean.past) #little change on probabilities
+
+#plot region-wide distributions
+
+#plot distributions
+par(mfrow=c(1,1))
+
+historical<-density(rnorm(10000,mean=mean.past,sd=sd.past))
+future<-density(rnorm(10000,mean=mean.future,sd=sd.future))
+plot(historical,col='blue',ylab='Density',xlab="NPP",main="historical vs. future NPP",lwd=2,ylim=c(0,0.008))
+lines((future),col='red',lwd=2)
+#plot distributions
+par(mfrow=c(1,1))
+
+historical<-density(rnorm(10000,mean=186.6389,sd=57.75353))
+h2<-density(rnorm(10000,mean=187.82,sd=41.45))
+plot(h1,col='blue')
+lines((h2),col='blue')
 
 x <- seq(60, 700, length.out=100)
 mean.future<-mean(merge.means$npp.future)
@@ -342,14 +392,9 @@ lines(density(bootstrap_future),
 legend("topleft",c("Historical","Future"),
        lty="solid",lwd=2, col=my_colors,cex=0.7,bty="n")
 
-# Calculate shifts in means and variances of the response
-mean_past = mean(y)
-sd_past = sd(y)
-q10_past = quantile(y,0.1)
-
-mean_future = mean(preds_xnew) + mean(resids_x)
-sd_future = sqrt(var(preds_xnew) + var(resids_x))
-prob_q10_future = pnorm(q10_past,mean_future,sd_future)
+#look at swc
+historical<-density(rnorm(10000,mean=mean.past,sd=sd.past))
+future<-density(rnorm(10000,mean=mean.future,sd=sd.future))
 
 #stopped here
 
@@ -383,27 +428,7 @@ plot(total~year,data=yearly.total)
 summary(yearly.total)
 View(test.cbind.future)
 hist.cbind
-#peters plotting code
-# figures based on histograms
-my_breaks=seq(0,400,5)
-my_colors=c(rgb(0,0,1,1/4),rgb(1,0,0,1/4))
-h1 <- hist(mean_npp_obs_pred$npp.pred,breaks=my_breaks)
-h2 <- hist(mean_npp_obs$npp.obs,breaks=my_breaks)  # this is the histogram of observed values
-h3 <- hist(mean.npp.pred$NPP,breaks=my_breaks) 
-h4 <- hist(mean.npp.total$total,breaks=my_breaks)
-par(mfrow=c(2,1),mar=c(4,4,1,1))
-plot(h1,col=my_colors[1],xlim=c(0,400),ylim=c(0,500),xlab="NPP",
-     main="Variation caused by soil moisture")
-plot(h3,col=my_colors[2],xlim=c(0,400),ylim=c(0,500),add=T)
-plot(h2,col=my_colors[1],xlim=c(0,400),ylim=c(0,500),xlab="NPP",
-     main="Total variation")
-plot(h4,col=my_colors[2],xlim=c(0,400),ylim=c(0,500),add=T)
-legend("topleft",c("Historical","Future"),
-       fill=my_colors,cex=0.7,bty="n")
 
-
-h1 <- hist(yearly.NPP$NPP,breaks=my_breaks)
-h2 <- hist(yearly.total$total,breaks=my_breaks) 
 
 #dry sites
 dry_sites_prediction_sgs_sc_1<-test.cbind %>% filter(swc.mean < 4.5)
