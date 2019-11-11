@@ -116,6 +116,7 @@ list.coefficients.final.sgs.swc<-list()
 list.variograms.sgs.swc<-list()
 list.residuals.full.sgs.swc<-list()
 list.residual.rasters.sgs.swc<-list()
+list.r.square.sgs.swc<-list()
 head(sgs_swc)
 head(stratified_final)
 
@@ -133,6 +134,14 @@ for(i in 1:1000)
   df<-data.frame(newcoef1)
   df$id = i
   list.coefficients.final.sgs.swc[[i]] <- data.frame(df)
+  
+  #get r-squared
+  #import r-squareds to list
+  #veg
+  r.square.sgs.swc<-summary(stratified_final_sgs_lm)$r.squared
+  r.square.sgs.swc.df<-data.frame(r.square.sgs.swc)
+  r.square.sgs.swc.df$id <- i
+  list.r.square.sgs.swc[[i]] <- data.frame(r.square.sgs.swc.df)
   
   #look all residuals
   stratified_final_sgs$resids <-residuals(stratified_final_sgs_lm)
@@ -156,6 +165,7 @@ for(i in 1:1000)
 
 plot(list.variograms.sgs.swc[508])
 
+#dataframe for slopes
 summary(stratified_final_sgs_lm)
 df.coefficients.sgs <- do.call("rbind", list.coefficients.final.sgs.swc)
 head(df.coefficients.sgs)
@@ -172,7 +182,7 @@ hist(df2.sgs$coefficient.sgs_moisture.x)
 
 colnames(df2.sgs)[colnames(df2.sgs)=="coefficient.(Intercept)"] <- "intercept"
 
-#95% CI
+#95% CI for coefficients
 error.95 <-function(x) {
   n = length(x)
   se = sd(x)/sqrt(n)
@@ -234,3 +244,9 @@ colnames(df2.sgs)[colnames(df2.sgs)=="coefficient.(Intercept)"] <- "intercept"
 hist(df.residuals.sgs.3$resid)
 ?rnorm
 ?sample
+
+#dataframe of r-squared to compare to precipitation
+df.rsquare.sgs.swc <- do.call("rbind",  list.r.square.sgs.swc)
+colnames(df.rsquare.sgs.swc)[colnames(df.rsquare.sgs.swc)=="r.square.sgs.swc"] <- "r.square"
+df.rsquare.sgs.swc$model<-'soil_moisture'
+head(df.rsquare.sgs.swc)
