@@ -112,6 +112,6 @@ ggplot(merge.swc.precip.r.square_cali,aes(x=r.square,fill=model)) +
 head(merge_cali_precip_cali_swc_mean)
 merge_cali_precip_cali_swc_mean$hot_dry_jan_june <-  merge_cali_precip_cali_swc_mean$hot_dry_jan_march + merge_cali_precip_cali_swc_mean$hot_dry_april_june
 library("PerformanceAnalytics")
-cali_precip_2 <- merge_cali_precip_cali_swc_mean[, c(6,12,22,23)]
+cali_precip_2 <- merge_cali_precip_cali_swc_mean[, c(6,12,21,23)]
 head(cali_precip_2)
 chart.Correlation(cali_precip_2, histogram=TRUE, pch=19)

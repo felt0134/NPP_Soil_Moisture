@@ -110,8 +110,8 @@ ggplot(merge.swc.precip.r.square_hot_deserts,aes(x=r.square,fill=model)) +
 
 #look at correlations
 head(merge_hot_deserts_precip_hot_deserts_swc_mean)
-merge_hot_deserts_precip_hot_deserts_swc_mean$hot_dry_april_sep <-  merge_hot_deserts_precip_hot_deserts_swc_mean$hot_dry_jan_march + merge_hot_deserts_precip_hot_deserts_swc_mean$hot_dry_april_june
+merge_hot_deserts_precip_hot_deserts_swc_mean$hot_dry_april_sep <-  merge_hot_deserts_precip_hot_deserts_swc_mean$hot_dry_april_june + merge_hot_deserts_precip_hot_deserts_swc_mean$hot_dry_july_september
 library("PerformanceAnalytics")
-hot_deserts_precip_2 <- merge_hot_deserts_precip_hot_deserts_swc_mean[, c(6,12,22,23)]
+hot_deserts_precip_2 <- merge_hot_deserts_precip_hot_deserts_swc_mean[, c(6,12,21,23)]
 head(hot_deserts_precip_2)
 chart.Correlation(hot_deserts_precip_2, histogram=TRUE, pch=19)
