@@ -137,6 +137,8 @@ plot(sgs_swc_raster_3)
 raster(sgs_swc_raster_3)
 sgs_raster_2_df<-rasterFromXYZ(sgs_swc_raster_3)
 head(sgs_raster_2_df)
+
+
 #workaround
 library(data.table)
 dt <- data.table(as.data.frame(sgs_swc_raster_3, xy = TRUE))
@@ -148,6 +150,48 @@ plot(npp.x~mm.dev,data=sgs_toy_4,xlab='precip deviation')
 plot(npp.x~june_september_swc_deviation,data=sgs_toy_4,xlab='soil moisture deviation')
 plot(npp.x~transp.dev,data=sgs_toy_4,xlab='transpiration deviation')
 plot(sgs_swc_raster_3,main='mean swc near cper')
+
+#test with shapefile
+library(spatstat)
+library(raster)
+R = 6371
+x = R * cos(40.5) * cos(-104.433333)
+
+y = R * cos(40.5) * sin(-104.433333)
+
+sgs.im<-as.im(X=sgs_toy_swc_mean,W = W)
+plot(sgs.im)
+cpear<-nearest.raster.point(x,y,sgs.im, indices=FALSE)
+
+
+plot(sgs_swc_raster)
+plot(p,add=TRUE)
+points(x= 40.5, y=-104.4333)
+
+#+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0
+p <- SpatialPoints(cbind(x=40.5,y=-104.433333))
+points(p)
+proj4string(p) <- CRS("+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")
+plot(p)
+proj4string(sgs_swc_raster) <- CRS("+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")
+e<-extent(p)
+plot(sgs_swc_raster)
+xy <- cbind(x=40.5,y=-104.433333)
+cent_max <- raster::extract(sgs_swc_raster,             # raster layer
+                    p,   # SPDF with centroids for buffer
+                    buffer = 200,     # buffer size, units depend on CRS
+                    fun=mean,
+                    method='simple',# what to value to extract
+                    sp=TRUE,
+                    cellnumbers=FALSE)
+
+#try this
+library(rgeos)
+shortest.dists <- numeric(nrow(sp.pts))
+
+for (i in seq_len(nrow(sp.pts)) {
+  shortest.dists[i] <- gDistance(sp.pts[i,], sp.lns)
+}
 
 ######california annuals toy dataframe#######################################################
 head(rangeland_npp_covariates_1)
